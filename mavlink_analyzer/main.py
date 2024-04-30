@@ -4,6 +4,8 @@ from textual.widgets import Button, Footer, Header, Static, Tree
 from mav_logger import MavAnalyzer
 from queue import Queue
 from threading import Thread, Event
+import signal
+import sys
 import logging
 from typing import (
     Dict
@@ -32,6 +34,7 @@ class Analyzer(App):
 
     def __init__(self):
         super().__init__()
+        self.__stop = False
         self.queue = Queue()
         self.work_event = Event()
         self.run_work_thread()
@@ -50,13 +53,17 @@ class Analyzer(App):
         self.work_thread = Thread(target=self.render_tree, daemon=True, name="work_thread")
         self.work_thread.start()
 
+    def stop(self):
+        self.__stop = True
 
     def render_tree(self):
-       
+        
         while True:
             self.work_event.wait()
+            if self.__stop:
+                break
             data = self.queue.get()
-            tree = self.query_one(Tree)
+            tree = self.query_one(Tree)    
             tree.clear()
             
             self.buile_tree(tree, data)
@@ -92,6 +99,10 @@ class Analyzer(App):
         self.work_event.set()
         self.work_event.clear()
 
+def signal_handler(signal, frame):
+    app.stop()
+    print("-------------Program terminated----------------")
+    sys.exit(0)
 
 if __name__ == "__main__":
     # app = Analyzer()
@@ -112,9 +123,10 @@ if __name__ == "__main__":
     #     }
     # }
     # app.buile_tree(tree)
-    
+    signal.signal(signal.SIGINT, signal_handler)
     app = Analyzer()
     mav = MavAnalyzer()
     mav.on_data += app.put
     mav.run()
+    
     app.run()

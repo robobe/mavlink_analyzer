@@ -5,6 +5,7 @@ from pymavlink.dialects.v20 import common
 from threading import Thread, Timer
 import logging
 from utils import EventHandler
+import copy
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -45,17 +46,21 @@ class MavMsgAnalyzer():
             msgs[msg_id] = 1#MsgMeta(id=msg_id, counter=1)
 
     def reset(self):
-        for sys_id, comps in self.data.items:
-            for comp_id, msgs in self.data[sys_id].items():
-                for msg_id,_ in self.data[sys_id][comp_id].items():
+        for sys_id, comps in self.data.items():
+            for comp_id, msgs in comps.items():
+                for msg_id,_ in msgs.items():
                     self.data[sys_id][comp_id][msg_id] = 0
 
     def snap(self)->dict:
-        copy_data = {}
-        for msg_id, c in self.data.items():
-            copy_data[msg_id] = c
-        return copy_data
-       
+        data = {}
+        for sys_id, comps in self.data.items():
+            data[sys_id] = {}
+            for comp_id, msgs in comps.items():
+                data[sys_id][comp_id] = {}
+                for msg_id,_ in msgs.items():
+                    data[sys_id][comp_id][msg_id] = self.data[sys_id][comp_id][msg_id]
+        
+        return data
     
     def __str__(self):
         data = ""
@@ -87,6 +92,8 @@ class MavAnalyzer():
                 self.on_data.call(self.mav_analyzer.snap())
                 # print(self.mav_analyzer.snap())
                 self.mav_analyzer.reset()
+        except:
+            log.error("data error", exc_info=True)
         finally:
             self.timer = Timer(1.0, self.timer_handler)
             self.timer.start()
@@ -116,7 +123,7 @@ class MavAnalyzer():
             
             except:
                 log.error("error", exc_info=True)
-            time.sleep(0.05)
+            time.sleep(0.1)
 
     # bytearray(b'\xfd\t\x00\x00\xa4\x01\x01\x00\x00\x00\x00\x00\x00\x00\x02\x03Q\x03\x03\x94\xd5')
 

@@ -88,7 +88,6 @@ class Analyzer(App):
                 # print(f"{sys_id}\n")
                 node = tree.root.add(str(sys_id), expand=True)
                 for comp_id, msgs in data[sys_id].items():
-                    print(f"{comp_id} \n")
                     comp_node = node.add(str(comp_id), expand=True)
                     for msg_id, counter in msgs.items():
                         comp_node.add_leaf(f"{msg_id} ({counter} Hz)")

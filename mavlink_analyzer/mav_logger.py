@@ -103,6 +103,7 @@ class MavAnalyzer():
             try:
                 msg = self.master.recv_match()
                 if msg is None:
+                    time.sleep(0.05)
                     continue
                 item = msg.to_dict()
                 sys_id = msg._msgbuf[5]

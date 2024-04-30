@@ -2,7 +2,7 @@ import time
 from dataclasses import dataclass
 from pymavlink import mavutil
 from pymavlink.dialects.v20 import common
-from threading import Thread
+from threading import Thread, Timer
 import logging
 from utils import EventHandler
 
@@ -31,18 +31,31 @@ class MavMsgAnalyzer():
     def __init__(self) -> None:
         self.data = {}
 
-    def track_msg(self, msg_id: int):
-        if msg_id in self.data:
-            self.data[msg_id].counter += 1
+    def track_msg(self, sys_id: int, comp_id: int, msg_id: int):
+        if sys_id not in self.data:
+            self.data[sys_id] = {}
+
+        if comp_id not in self.data[sys_id]:
+            self.data[sys_id][comp_id] = {}
+
+        msgs = self.data[sys_id][comp_id]
+        if msg_id in msgs:
+            msgs[msg_id] += 1
         else:
-            self.data[msg_id] = MsgMeta(id=msg_id, counter=1)
+            msgs[msg_id] = 1#MsgMeta(id=msg_id, counter=1)
 
     def reset(self):
-        for _, meta in self.data.items():
-            meta.counter = 0
+        for sys_id, comps in self.data.items:
+            for comp_id, msgs in self.data[sys_id].items():
+                for msg_id,_ in self.data[sys_id][comp_id].items():
+                    self.data[sys_id][comp_id][msg_id] = 0
 
     def snap(self)->dict:
-        return self.data
+        copy_data = {}
+        for msg_id, c in self.data.items():
+            copy_data[msg_id] = c
+        return copy_data
+       
     
     def __str__(self):
         data = ""
@@ -61,10 +74,22 @@ class MavAnalyzer():
         # request_message_interval(common.MAVLINK_MSG_ID_BATTERY_STATUS, 10)
         self.last_time = time.time()
         self.mav_analyzer = MavMsgAnalyzer()
+        self.timer = Timer(1.0, self.timer_handler)
+        self.timer.start()
 
     def run(self):
         self.work_thread = Thread(target=self.__runner, daemon=True, name="work_thread")
         self.work_thread.start()
+
+    def timer_handler(self):
+        try:
+            if self.on_data:
+                self.on_data.call(self.mav_analyzer.snap())
+                # print(self.mav_analyzer.snap())
+                self.mav_analyzer.reset()
+        finally:
+            self.timer = Timer(1.0, self.timer_handler)
+            self.timer.start()
 
     def __runner(self):
         while True:
@@ -73,16 +98,30 @@ class MavAnalyzer():
                 if msg is None:
                     continue
                 item = msg.to_dict()
-                self.mav_analyzer.track_msg(item["mavpackettype"])
-                current_time = time.time()
-                delta = current_time - self.last_time
-                if  delta >= 1.0:
-                    self.last_time = time.time()
-                    self.on_data.call(self.mav_analyzer.snap())
-                    self.mav_analyzer.reset()
+                sys_id = msg._msgbuf[5]
+                comp_id = msg._msgbuf[6]
+                self.mav_analyzer.track_msg(
+                    sys_id,
+                    comp_id,
+                    item["mavpackettype"]
+                )
+                
+                # if item["mavpackettype"] == "HEARTBEAT":
+                #     pass
+                # current_time = time.time()
+                # delta = current_time - self.last_time
+                # if  delta >= 0.99:
+                #     self.last_time = time.time()
+                    
             
             except:
                 log.error("error", exc_info=True)
-            time.sleep(0.1)
+            time.sleep(0.05)
 
     # bytearray(b'\xfd\t\x00\x00\xa4\x01\x01\x00\x00\x00\x00\x00\x00\x00\x02\x03Q\x03\x03\x94\xd5')
+
+if __name__ == "__main__":
+    obj = MavAnalyzer()
+    obj.run()
+    while True:
+        time.sleep(1)

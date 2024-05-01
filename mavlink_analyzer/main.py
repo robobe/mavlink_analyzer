@@ -6,8 +6,10 @@ from queue import Queue
 from threading import Thread, Event
 import signal
 import sys
+import time
 import logging
 from typing import (
+    Coroutine,
     Dict
 )
 
@@ -39,6 +41,10 @@ class Analyzer(App):
         self.work_event = Event()
         self.run_work_thread()
 
+    def _on_exit_app(self):
+        self.stop()
+        return super()._on_exit_app()
+    
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
         yield Header()
@@ -55,20 +61,26 @@ class Analyzer(App):
 
     def stop(self):
         self.__stop = True
+        log.info("------ try to stop TUI loop")
+        self.work_event.set()
 
     def render_tree(self):
         
         while True:
-            self.work_event.wait()
-            if self.__stop:
-                break
-            data = self.queue.get()
-            tree = self.query_one(Tree)    
-            tree.clear()
-            
-            self.buile_tree(tree, data)
+            try:
+                self.work_event.wait()
+                if self.__stop:
+                    log.info("Stopping render loop")
+                    break
+                data = self.queue.get()
+                tree = self.query_one(Tree)    
+                tree.clear()
+                
+                self.buile_tree(tree, data)
 
-            tree.root.expand()
+                tree.root.expand()
+            except:
+                log.error("Render failed", exc_info=True)
 
     def buile_tree(self, tree: Tree, data: Dict):
         title=""
@@ -99,9 +111,10 @@ class Analyzer(App):
         self.work_event.clear()
 
 def signal_handler(signal, frame):
-    app.stop()
-    print("-------------Program terminated----------------")
-    sys.exit(0)
+    mav.stop()
+    
+    log.info("-------------Program terminated----------------")
+    app.exit(return_code=0)
 
 if __name__ == "__main__":
     # app = Analyzer()

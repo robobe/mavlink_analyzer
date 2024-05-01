@@ -71,6 +71,7 @@ class MavMsgAnalyzer():
 
 class MavAnalyzer():
     def __init__(self) -> None:
+        self.__stop = False
         self.on_data = EventHandler()
         self.master = mavutil.mavlink_connection('udp:127.0.0.1:14560', source_system=254)
         # Make sure the connection is valid
@@ -95,12 +96,21 @@ class MavAnalyzer():
         except:
             log.error("data error", exc_info=True)
         finally:
-            self.timer = Timer(1.0, self.timer_handler)
-            self.timer.start()
+            if not self.__stop:
+                self.timer = Timer(1.0, self.timer_handler)
+                self.timer.start()
+            else:
+                log.info("Stopping render loop timer")
+
+    def stop(self):
+        self.__stop = True
 
     def __runner(self):
         while True:
             try:
+                if self.__stop:
+                    log.info("Stoping mavlink loop")
+                    break
                 msg = self.master.recv_match()
                 if msg is None:
                     time.sleep(0.05)

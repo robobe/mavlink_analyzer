@@ -134,7 +134,7 @@ class MavAnalyzer():
             
             except:
                 log.error("error", exc_info=True)
-            time.sleep(0.1)
+            time.sleep(0.001)
 
     # bytearray(b'\xfd\t\x00\x00\xa4\x01\x01\x00\x00\x00\x00\x00\x00\x00\x02\x03Q\x03\x03\x94\xd5')
 

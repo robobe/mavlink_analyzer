@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mavlink_analyzer"
 authors = [
-    {name = "robobe", email = "author@example.com"}
+    {name = "dev", email = "author@example.com"}
 ]
 description = "mavlink message analyzer"
 version = "0.0.1"
